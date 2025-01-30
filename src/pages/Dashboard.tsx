@@ -77,10 +77,12 @@ const Dashboard = () => {
 
       setProgress(75);
 
+      // Store the response before parsing
+      const responseContent = data.choices[0].message.content;
+
       try {
         // Parse the AI response for code sections
-        const aiResponse = data.choices[0].message.content;
-        const parsedResponse = JSON.parse(aiResponse);
+        const parsedResponse = JSON.parse(responseContent);
         
         setGeneratedCode({
           frontend: parsedResponse.frontend,
@@ -97,7 +99,7 @@ const Dashboard = () => {
         // Fallback for non-JSON responses
         setMessages([...newMessages, { 
           role: "assistant" as const, 
-          content: aiResponse 
+          content: responseContent 
         }]);
       }
 
