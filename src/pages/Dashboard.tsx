@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Progress } from "@/components/ui/progress";
 
 type MessageRole = "user" | "assistant";
 
@@ -12,12 +13,20 @@ interface Message {
   content: string;
 }
 
+interface GeneratedCode {
+  frontend?: string;
+  backend?: string;
+  database?: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [generatedCode, setGeneratedCode] = useState<GeneratedCode>({});
+  const [progress, setProgress] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -50,10 +59,14 @@ const Dashboard = () => {
 
     try {
       setIsLoading(true);
+      setProgress(25);
+      
       // Add user message to the chat
       const newMessages: Message[] = [...messages, { role: "user" as const, content: message }];
       setMessages(newMessages);
       setMessage("");
+
+      setProgress(50);
 
       // Call the Edge Function
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
@@ -62,22 +75,56 @@ const Dashboard = () => {
 
       if (error) throw error;
 
-      // Add AI response to the chat
-      setMessages([...newMessages, { 
-        role: "assistant" as const, 
-        content: data.choices[0].message.content 
-      }]);
+      setProgress(75);
+
+      try {
+        // Parse the AI response for code sections
+        const aiResponse = data.choices[0].message.content;
+        const parsedResponse = JSON.parse(aiResponse);
+        
+        setGeneratedCode({
+          frontend: parsedResponse.frontend,
+          backend: parsedResponse.backend,
+          database: parsedResponse.database,
+        });
+
+        // Add AI response to the chat
+        setMessages([...newMessages, { 
+          role: "assistant" as const, 
+          content: "I've generated your application! Check out the code preview sections below." 
+        }]);
+      } catch (parseError) {
+        // Fallback for non-JSON responses
+        setMessages([...newMessages, { 
+          role: "assistant" as const, 
+          content: aiResponse 
+        }]);
+      }
+
+      setProgress(100);
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
         title: "Error",
-        description: "Failed to send message. Please try again.",
+        description: "Failed to generate application. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
+      setTimeout(() => setProgress(0), 1000);
     }
   };
+
+  const CodePreview = ({ code, title }: { code?: string; title: string }) => (
+    code ? (
+      <div className="mt-4">
+        <h3 className="text-lg font-semibold mb-2">{title}</h3>
+        <pre className="bg-gray-900 p-4 rounded-lg overflow-x-auto">
+          <code className="text-sm text-white">{code}</code>
+        </pre>
+      </div>
+    ) : null
+  );
 
   if (!session) {
     return null;
@@ -97,42 +144,59 @@ const Dashboard = () => {
           </Button>
         </div>
 
-        <div className="bg-gray-800/50 backdrop-blur rounded-lg p-6 mb-6 h-[60vh] overflow-y-auto">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`mb-4 ${
-                msg.role === 'user' ? 'text-right' : 'text-left'
-              }`}
-            >
-              <div
-                className={`inline-block max-w-[80%] rounded-lg p-4 ${
-                  msg.role === 'user'
-                    ? 'bg-purple-600 text-white ml-auto'
-                    : 'bg-gray-700 text-white'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{msg.content}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {progress > 0 && (
+          <div className="mb-4">
+            <Progress value={progress} className="h-2" />
+          </div>
+        )}
 
-        <div className="flex gap-4">
-          <Input
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder="Describe the web application you want to build..."
-            className="flex-1 bg-gray-800/50 border-gray-600 text-white"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={isLoading}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            {isLoading ? "Sending..." : "Send"}
-          </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div>
+            <div className="bg-gray-800/50 backdrop-blur rounded-lg p-6 mb-6 h-[60vh] overflow-y-auto">
+              {messages.map((msg, index) => (
+                <div
+                  key={index}
+                  className={`mb-4 ${
+                    msg.role === 'user' ? 'text-right' : 'text-left'
+                  }`}
+                >
+                  <div
+                    className={`inline-block max-w-[80%] rounded-lg p-4 ${
+                      msg.role === 'user'
+                        ? 'bg-purple-600 text-white ml-auto'
+                        : 'bg-gray-700 text-white'
+                    }`}
+                  >
+                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-4">
+              <Input
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Describe the web application you want to build..."
+                className="flex-1 bg-gray-800/50 border-gray-600 text-white"
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={isLoading}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                {isLoading ? "Generating..." : "Generate"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="bg-gray-800/50 backdrop-blur rounded-lg p-6 h-[80vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Generated Application</h2>
+            <CodePreview code={generatedCode.frontend} title="Frontend Code" />
+            <CodePreview code={generatedCode.backend} title="Backend Code" />
+            <CodePreview code={generatedCode.database} title="Database Schema" />
+          </div>
         </div>
       </div>
     </div>

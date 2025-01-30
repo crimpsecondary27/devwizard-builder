@@ -9,7 +9,6 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -17,6 +16,13 @@ serve(async (req) => {
   try {
     const { message } = await req.json();
     console.log('Received message:', message);
+
+    const systemPrompt = `You are an AI assistant specialized in generating full-stack web applications. 
+    When users describe their application requirements, you should:
+    1. Generate the necessary front-end components using React and Tailwind CSS
+    2. Create required backend APIs and database schemas
+    3. Provide step-by-step implementation guidance
+    4. Return your response in a structured JSON format with separate sections for frontend, backend, and database code`;
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -27,10 +33,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'deepseek-coder',
         messages: [
-          {
-            role: 'system',
-            content: 'You are an AI assistant specialized in helping users build full-stack web applications. You provide clear, detailed guidance and can generate code when needed.'
-          },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: message }
         ],
       }),
