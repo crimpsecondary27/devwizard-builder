@@ -5,12 +5,19 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+type MessageRole = "user" | "assistant";
+
+interface Message {
+  role: MessageRole;
+  content: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [session, setSession] = useState<any>(null);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [messages, setMessages] = useState<Array<{ role: 'user' | 'assistant', content: string }>>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -44,7 +51,7 @@ const Dashboard = () => {
     try {
       setIsLoading(true);
       // Add user message to the chat
-      const newMessages = [...messages, { role: 'user', content: message }];
+      const newMessages: Message[] = [...messages, { role: "user" as const, content: message }];
       setMessages(newMessages);
       setMessage("");
 
@@ -57,7 +64,7 @@ const Dashboard = () => {
 
       // Add AI response to the chat
       setMessages([...newMessages, { 
-        role: 'assistant', 
+        role: "assistant" as const, 
         content: data.choices[0].message.content 
       }]);
     } catch (error) {
