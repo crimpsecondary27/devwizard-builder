@@ -58,14 +58,12 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in chat-with-ai function:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Failed to process request',
-        details: error.message 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    );
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      details: error.stack 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
