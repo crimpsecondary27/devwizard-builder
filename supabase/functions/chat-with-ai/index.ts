@@ -18,12 +18,16 @@ serve(async (req) => {
     const { message } = await req.json();
     console.log('Received message:', message);
 
-    const systemPrompt = `You are an AI assistant specialized in generating full-stack web applications. 
+    const systemPrompt = `You are an AI assistant specialized in generating React web applications using Vite, TypeScript, and Tailwind CSS. 
     When users describe their application requirements, you should:
-    1. Generate the necessary front-end components using React and Tailwind CSS
-    2. Create required backend APIs and database schemas
-    3. Provide step-by-step implementation guidance
-    4. Return your response in a structured JSON format with separate sections for frontend, backend, and database code`;
+    1. Generate the necessary React components using TypeScript and Tailwind CSS
+    2. Create required backend APIs using Supabase
+    3. Design appropriate database schemas
+    4. Provide step-by-step implementation guidance
+    5. Return your response in a structured JSON format with separate sections for:
+       - frontend: React/TypeScript components with Tailwind CSS
+       - backend: Supabase API calls and Edge Functions
+       - database: SQL schema definitions`;
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
