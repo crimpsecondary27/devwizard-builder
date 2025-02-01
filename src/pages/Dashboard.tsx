@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type MessageRole = "user" | "assistant";
 
@@ -28,6 +29,7 @@ const Dashboard = () => {
   const [generatedCode, setGeneratedCode] = useState<GeneratedCode>({});
   const [progress, setProgress] = useState(0);
   const { toast } = useToast();
+  const [sandboxUrl, setSandboxUrl] = useState<string>("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -54,6 +56,29 @@ const Dashboard = () => {
     navigate("/");
   };
 
+  const createSandboxUrl = (code: string) => {
+    // Create a sandbox URL based on the generated code
+    // This is a simplified example - you might want to use a more sophisticated sandbox service
+    const params = new URLSearchParams();
+    params.append('html', `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body>
+          <div id="root"></div>
+          <script type="module">
+            ${code}
+          </script>
+        </body>
+      </html>
+    `);
+    return `data:text/html;charset=utf-8,${encodeURIComponent(params.toString())}`;
+  };
+
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
@@ -61,14 +86,12 @@ const Dashboard = () => {
       setIsLoading(true);
       setProgress(25);
       
-      // Add user message to the chat
       const newMessages: Message[] = [...messages, { role: "user" as const, content: message }];
       setMessages(newMessages);
       setMessage("");
 
       setProgress(50);
 
-      // Call the Edge Function
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: { message },
       });
@@ -77,11 +100,9 @@ const Dashboard = () => {
 
       setProgress(75);
 
-      // Store the response before parsing
       const responseContent = data.choices[0].message.content;
 
       try {
-        // Parse the AI response for code sections
         const parsedResponse = JSON.parse(responseContent);
         
         setGeneratedCode({
@@ -90,13 +111,17 @@ const Dashboard = () => {
           database: parsedResponse.database,
         });
 
-        // Add AI response to the chat
+        // Create sandbox URL from frontend code
+        if (parsedResponse.frontend) {
+          const sandboxUrl = createSandboxUrl(parsedResponse.frontend);
+          setSandboxUrl(sandboxUrl);
+        }
+
         setMessages([...newMessages, { 
           role: "assistant" as const, 
           content: "I've generated your application! Check out the code preview sections below." 
         }]);
       } catch (parseError) {
-        // Fallback for non-JSON responses
         setMessages([...newMessages, { 
           role: "assistant" as const, 
           content: responseContent 
@@ -195,9 +220,31 @@ const Dashboard = () => {
 
           <div className="bg-gray-800/50 backdrop-blur rounded-lg p-6 h-[80vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">Generated Application</h2>
-            <CodePreview code={generatedCode.frontend} title="Frontend Code" />
-            <CodePreview code={generatedCode.backend} title="Backend Code" />
-            <CodePreview code={generatedCode.database} title="Database Schema" />
+            <Tabs defaultValue="code" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="code">Code</TabsTrigger>
+                <TabsTrigger value="preview">Live Preview</TabsTrigger>
+              </TabsList>
+              <TabsContent value="code">
+                <CodePreview code={generatedCode.frontend} title="Frontend Code" />
+                <CodePreview code={generatedCode.backend} title="Backend Code" />
+                <CodePreview code={generatedCode.database} title="Database Schema" />
+              </TabsContent>
+              <TabsContent value="preview" className="h-[60vh]">
+                {sandboxUrl ? (
+                  <iframe
+                    src={sandboxUrl}
+                    className="w-full h-full rounded-lg border border-gray-700"
+                    sandbox="allow-scripts allow-same-origin"
+                    title="Generated Application Preview"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">
+                    No preview available yet. Generate some code first!
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>
