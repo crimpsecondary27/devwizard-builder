@@ -57,10 +57,7 @@ const Dashboard = () => {
   };
 
   const createSandboxUrl = (code: string) => {
-    // Create a sandbox URL based on the generated code
-    // This is a simplified example - you might want to use a more sophisticated sandbox service
-    const params = new URLSearchParams();
-    params.append('html', `
+    const htmlContent = `
       <!DOCTYPE html>
       <html>
         <head>
@@ -71,12 +68,14 @@ const Dashboard = () => {
         <body>
           <div id="root"></div>
           <script type="module">
+            import React from 'https://esm.sh/react@18.2.0'
+            import ReactDOM from 'https://esm.sh/react-dom@18.2.0'
             ${code}
           </script>
         </body>
       </html>
-    `);
-    return `data:text/html;charset=utf-8,${encodeURIComponent(params.toString())}`;
+    `;
+    return `data:text/html;charset=utf-8,${encodeURIComponent(htmlContent)}`;
   };
 
   const handleSendMessage = async () => {
@@ -111,9 +110,10 @@ const Dashboard = () => {
           database: parsedResponse.database,
         });
 
-        // Create sandbox URL from frontend code
         if (parsedResponse.frontend) {
+          console.log('Creating sandbox URL with frontend code:', parsedResponse.frontend);
           const sandboxUrl = createSandboxUrl(parsedResponse.frontend);
+          console.log('Generated sandbox URL:', sandboxUrl);
           setSandboxUrl(sandboxUrl);
         }
 
@@ -122,6 +122,7 @@ const Dashboard = () => {
           content: "I've generated your application! Check out the code preview sections below." 
         }]);
       } catch (parseError) {
+        console.error('Error parsing AI response:', parseError);
         setMessages([...newMessages, { 
           role: "assistant" as const, 
           content: responseContent 
