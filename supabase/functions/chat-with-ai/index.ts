@@ -15,6 +15,12 @@ serve(async (req) => {
   }
 
   try {
+    // Validate API key exists
+    if (!DEEPSEEK_API_KEY) {
+      console.error('DEEPSEEK_API_KEY is not set')
+      throw new Error('DeepSeek API key is not configured')
+    }
+
     const { message } = await req.json()
     console.log('Received message:', message)
 
@@ -45,6 +51,12 @@ serve(async (req) => {
     })
 
     if (!response.ok) {
+      const errorText = await response.text()
+      console.error('DeepSeek API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      })
       throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`)
     }
 
@@ -56,9 +68,15 @@ serve(async (req) => {
     })
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return new Response(
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack 
+      }), 
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
   }
 })
