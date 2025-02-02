@@ -24,13 +24,16 @@ serve(async (req) => {
     const { message } = await req.json()
     console.log('Received message:', message)
 
+    if (!message || typeof message !== 'string') {
+      throw new Error('Invalid message format. Expected a string.')
+    }
+
     console.log('Making request to DeepSeek API...')
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
       },
       body: JSON.stringify({
         model: "deepseek-coder-33b-instruct",
@@ -45,23 +48,28 @@ serve(async (req) => {
               "database": "// Database schema if needed"
             }`
           },
-          { role: "user", content: message }
+          { 
+            role: "user", 
+            content: message 
+          }
         ],
         temperature: 0.7,
         max_tokens: 4000,
+        stream: false // Explicitly set stream to false
       }),
     })
 
+    console.log('DeepSeek API response status:', response.status)
+    
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('DeepSeek API error:', {
+      console.error('DeepSeek API error details:', {
         status: response.status,
         statusText: response.statusText,
         body: errorText,
         headers: Object.fromEntries(response.headers.entries())
       })
       
-      // Check specifically for auth errors
       if (response.status === 401) {
         throw new Error('Invalid DeepSeek API key. Please check your configuration.')
       }
@@ -70,7 +78,7 @@ serve(async (req) => {
     }
 
     const data = await response.json()
-    console.log('DeepSeek API response:', data)
+    console.log('DeepSeek API response data:', data)
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
