@@ -30,14 +30,15 @@ serve(async (req) => {
     
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
     When a user requests a feature or application, analyze their request and generate the necessary code components.
-    Always return your response in this exact JSON format:
+    Your response must be a valid JSON string that can be parsed. Format your entire response as a JSON object with exactly these three fields:
     {
       "frontend": "// React component code with proper imports and TypeScript types",
       "backend": "// Any necessary backend code or API endpoints",
       "database": "// Required database schema or modifications"
     }
     Make sure all code is properly formatted, includes necessary imports, and follows best practices.
-    If the user's request doesn't require one of these components, include an empty string for that field.`
+    If a component is not needed, use an empty string for that field.
+    IMPORTANT: Your entire response must be a valid JSON string that can be parsed using JSON.parse().`
 
     const requestBody = {
       messages: [
@@ -86,22 +87,32 @@ serve(async (req) => {
     const data = await response.json()
     console.log('DeepSeek API response data:', data)
 
-    // Try to parse the response content as JSON
+    // Log the actual content for debugging
+    const content = data.choices[0].message.content
+    console.log('Raw AI response content:', content)
+
     try {
-      const content = data.choices[0].message.content
+      // Try to parse the content as JSON
       const parsedContent = JSON.parse(content)
+      console.log('Parsed content:', parsedContent)
       
       // Validate the response format
-      if (!parsedContent.frontend && !parsedContent.backend && !parsedContent.database) {
-        throw new Error('Invalid response format from AI')
+      if (typeof parsedContent !== 'object' || parsedContent === null) {
+        throw new Error('AI response is not a JSON object')
       }
 
+      if (!('frontend' in parsedContent) || !('backend' in parsedContent) || !('database' in parsedContent)) {
+        throw new Error('AI response is missing required fields')
+      }
+
+      // If validation passes, return the original response
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError)
-      throw new Error('Failed to parse AI response as JSON')
+      console.error('Failed to parse content:', content)
+      throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`)
     }
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
