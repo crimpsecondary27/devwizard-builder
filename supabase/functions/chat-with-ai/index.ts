@@ -36,7 +36,6 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "deepseek-coder-33b-instruct",
         messages: [
           {
             role: "system",
@@ -53,9 +52,10 @@ serve(async (req) => {
             content: message 
           }
         ],
+        model: "deepseek-coder-33b-instruct",
         temperature: 0.7,
         max_tokens: 4000,
-        stream: false // Explicitly set stream to false
+        stream: false
       }),
     })
 
