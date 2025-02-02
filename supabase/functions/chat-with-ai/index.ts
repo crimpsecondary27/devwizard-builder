@@ -24,11 +24,13 @@ serve(async (req) => {
     const { message } = await req.json()
     console.log('Received message:', message)
 
+    console.log('Making request to DeepSeek API...')
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
       },
       body: JSON.stringify({
         model: "deepseek-coder-33b-instruct",
@@ -55,8 +57,15 @@ serve(async (req) => {
       console.error('DeepSeek API error:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText
+        body: errorText,
+        headers: Object.fromEntries(response.headers.entries())
       })
+      
+      // Check specifically for auth errors
+      if (response.status === 401) {
+        throw new Error('Invalid DeepSeek API key. Please check your configuration.')
+      }
+      
       throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`)
     }
 
@@ -71,7 +80,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: error.stack 
+        details: error.stack,
+        timestamp: new Date().toISOString()
       }), 
       {
         status: 500,
