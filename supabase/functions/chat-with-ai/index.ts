@@ -39,7 +39,6 @@ serve(async (req) => {
     }`
 
     const requestBody = {
-      model: "deepseek-coder-33b-instruct",
       messages: [
         {
           role: "system",
@@ -50,8 +49,12 @@ serve(async (req) => {
           content: message 
         }
       ],
+      model: "deepseek-coder-33b-instruct",
       temperature: 0.7,
-      max_tokens: 4000
+      max_tokens: 4000,
+      top_p: 1,
+      frequency_penalty: 0,
+      presence_penalty: 0
     }
 
     console.log('Request body:', JSON.stringify(requestBody, null, 2))
