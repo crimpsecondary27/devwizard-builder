@@ -29,34 +29,39 @@ serve(async (req) => {
     }
 
     console.log('Making request to DeepSeek API...')
+    
+    const requestBody = {
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
+          When generating code, always return a JSON response with the following structure:
+          {
+            "frontend": "// React component code here",
+            "backend": "// Backend code here if needed",
+            "database": "// Database schema if needed"
+          }`
+        },
+        { 
+          role: "user", 
+          content: message 
+        }
+      ],
+      model: "deepseek-coder-33b-instruct",
+      temperature: 0.7,
+      max_tokens: 4000,
+      stream: false
+    }
+
+    console.log('Request body:', JSON.stringify(requestBody, null, 2))
+
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
-            When generating code, always return a JSON response with the following structure:
-            {
-              "frontend": "// React component code here",
-              "backend": "// Backend code here if needed",
-              "database": "// Database schema if needed"
-            }`
-          },
-          { 
-            role: "user", 
-            content: message 
-          }
-        ],
-        model: "deepseek-coder-33b-instruct",
-        temperature: 0.7,
-        max_tokens: 4000,
-        stream: false
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     console.log('DeepSeek API response status:', response.status)
@@ -69,10 +74,6 @@ serve(async (req) => {
         body: errorText,
         headers: Object.fromEntries(response.headers.entries())
       })
-      
-      if (response.status === 401) {
-        throw new Error('Invalid DeepSeek API key. Please check your configuration.')
-      }
       
       throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`)
     }
