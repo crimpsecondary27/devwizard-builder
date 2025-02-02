@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import CodeEditor from "@/components/CodeEditor";
 
 type MessageRole = "user" | "assistant";
 
@@ -187,6 +188,15 @@ const Dashboard = () => {
     }
   };
 
+  const handleCodeChange = (newCode: string | undefined, type: 'frontend' | 'backend' | 'database') => {
+    if (newCode) {
+      setGeneratedCode(prev => ({
+        ...prev,
+        [type]: newCode
+      }));
+    }
+  };
+
   const CodePreview = ({ code, title }: { code?: string; title: string }) => (
     code ? (
       <div className="mt-4">
@@ -270,10 +280,37 @@ const Dashboard = () => {
                 <TabsTrigger value="code">Code</TabsTrigger>
                 <TabsTrigger value="preview">Live Preview</TabsTrigger>
               </TabsList>
-              <TabsContent value="code">
-                <CodePreview code={generatedCode.frontend} title="Frontend Code" />
-                <CodePreview code={generatedCode.backend} title="Backend Code" />
-                <CodePreview code={generatedCode.database} title="Database Schema" />
+              <TabsContent value="code" className="space-y-6">
+                {generatedCode.frontend && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Frontend Code</h3>
+                    <CodeEditor 
+                      code={generatedCode.frontend}
+                      language="typescript"
+                      onChange={(value) => handleCodeChange(value, 'frontend')}
+                    />
+                  </div>
+                )}
+                {generatedCode.backend && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Backend Code</h3>
+                    <CodeEditor 
+                      code={generatedCode.backend}
+                      language="typescript"
+                      onChange={(value) => handleCodeChange(value, 'backend')}
+                    />
+                  </div>
+                )}
+                {generatedCode.database && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Database Schema</h3>
+                    <CodeEditor 
+                      code={generatedCode.database}
+                      language="sql"
+                      onChange={(value) => handleCodeChange(value, 'database')}
+                    />
+                  </div>
+                )}
               </TabsContent>
               <TabsContent value="preview" className="h-[60vh]">
                 {sandboxUrl ? (

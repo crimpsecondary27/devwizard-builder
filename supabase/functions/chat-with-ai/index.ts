@@ -86,27 +86,31 @@ serve(async (req) => {
     }
 
     const data = await response.json()
-    console.log('DeepSeek API response data:', data)
+    console.log('DeepSeek API response data:', JSON.stringify(data, null, 2))
 
-    // Log the actual content for debugging
+    if (!data.choices?.[0]?.message?.content) {
+      throw new Error('Invalid response format from DeepSeek API')
+    }
+
+    // Get the raw content from the AI response
     const content = data.choices[0].message.content
     console.log('Raw AI response content:', content)
 
     try {
       // Clean the content by removing any markdown formatting
       const cleanContent = content
-        .replace(/```json\n?/g, '') // Remove ```json
-        .replace(/```\n?/g, '')     // Remove closing ```
-        .trim()                     // Remove any extra whitespace
+        .replace(/```json\n?/g, '')
+        .replace(/```\n?/g, '')
+        .trim()
 
       console.log('Cleaned content:', cleanContent)
 
       // Try to parse the cleaned content as JSON
       const parsedContent = JSON.parse(cleanContent)
-      console.log('Parsed content:', parsedContent)
+      console.log('Successfully parsed content:', JSON.stringify(parsedContent, null, 2))
       
       // Validate the response format
-      if (typeof parsedContent !== 'object' || parsedContent === null) {
+      if (!parsedContent || typeof parsedContent !== 'object') {
         throw new Error('AI response is not a JSON object')
       }
 
@@ -114,8 +118,17 @@ serve(async (req) => {
         throw new Error('AI response is missing required fields')
       }
 
-      // If validation passes, return the original response
-      return new Response(JSON.stringify(data), {
+      // If validation passes, return the original response with the parsed content
+      return new Response(JSON.stringify({
+        ...data,
+        choices: [{
+          ...data.choices[0],
+          message: {
+            ...data.choices[0].message,
+            content: JSON.stringify(parsedContent)
+          }
+        }]
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     } catch (parseError) {
