@@ -30,27 +30,28 @@ serve(async (req) => {
 
     console.log('Making request to DeepSeek API...')
     
+    const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
+    When generating code, always return a JSON response with the following structure:
+    {
+      "frontend": "// React component code here",
+      "backend": "// Backend code here if needed",
+      "database": "// Database schema if needed"
+    }`
+
     const requestBody = {
+      model: "deepseek-coder-33b-instruct",
       messages: [
         {
           role: "system",
-          content: `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
-          When generating code, always return a JSON response with the following structure:
-          {
-            "frontend": "// React component code here",
-            "backend": "// Backend code here if needed",
-            "database": "// Database schema if needed"
-          }`
+          content: systemPrompt
         },
         { 
           role: "user", 
           content: message 
         }
       ],
-      model: "deepseek-coder-33b-instruct",
       temperature: 0.7,
-      max_tokens: 4000,
-      stream: false
+      max_tokens: 4000
     }
 
     console.log('Request body:', JSON.stringify(requestBody, null, 2))
