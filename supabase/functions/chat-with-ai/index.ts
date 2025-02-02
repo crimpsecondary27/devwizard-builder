@@ -49,7 +49,7 @@ serve(async (req) => {
           content: message 
         }
       ],
-      model: "deepseek-coder-33b-instruct",
+      model: "deepseek-chat",
       temperature: 0.7,
       max_tokens: 4000,
       top_p: 1,
