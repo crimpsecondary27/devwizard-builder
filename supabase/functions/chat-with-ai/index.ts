@@ -30,7 +30,8 @@ serve(async (req) => {
     
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
     When a user requests a feature or application, analyze their request and generate the necessary code components.
-    Your response must be a valid JSON string that can be parsed. Format your entire response as a JSON object with exactly these three fields:
+    IMPORTANT: Return ONLY a raw JSON object, do not wrap it in markdown code blocks or any other formatting.
+    Your response must be a valid JSON object with exactly these three fields:
     {
       "frontend": "// React component code with proper imports and TypeScript types",
       "backend": "// Any necessary backend code or API endpoints",
@@ -38,7 +39,7 @@ serve(async (req) => {
     }
     Make sure all code is properly formatted, includes necessary imports, and follows best practices.
     If a component is not needed, use an empty string for that field.
-    IMPORTANT: Your entire response must be a valid JSON string that can be parsed using JSON.parse().`
+    DO NOT include any markdown formatting, code blocks, or additional text - ONLY the JSON object.`
 
     const requestBody = {
       messages: [
@@ -92,8 +93,16 @@ serve(async (req) => {
     console.log('Raw AI response content:', content)
 
     try {
-      // Try to parse the content as JSON
-      const parsedContent = JSON.parse(content)
+      // Clean the content by removing any markdown formatting
+      const cleanContent = content
+        .replace(/```json\n?/g, '') // Remove ```json
+        .replace(/```\n?/g, '')     // Remove closing ```
+        .trim()                     // Remove any extra whitespace
+
+      console.log('Cleaned content:', cleanContent)
+
+      // Try to parse the cleaned content as JSON
+      const parsedContent = JSON.parse(cleanContent)
       console.log('Parsed content:', parsedContent)
       
       // Validate the response format
