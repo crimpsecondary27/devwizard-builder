@@ -79,7 +79,7 @@ serve(async (req) => {
         headers: Object.fromEntries(response.headers.entries())
       })
       
-      throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`)
+      throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}\nResponse: ${errorText}`)
     }
 
     const data = await response.json()
@@ -90,6 +90,14 @@ serve(async (req) => {
     })
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
+    
+    // Log the full error details
+    if (error instanceof Error) {
+      console.error('Error name:', error.name)
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+    }
+    
     return new Response(
       JSON.stringify({ 
         error: error.message,
