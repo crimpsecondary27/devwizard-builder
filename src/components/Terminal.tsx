@@ -6,6 +6,7 @@ export function Terminal() {
   const [currentCommand, setCurrentCommand] = useState('');
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isInstalling, setIsInstalling] = useState(false);
   const terminalRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -16,7 +17,44 @@ export function Terminal() {
     }
   }, [commands]);
 
-  const executeCommand = (command: string) => {
+  const simulateNextAppInstallation = async () => {
+    const steps = [
+      "Need to install the following packages:",
+      "  create-next-app@14.1.0",
+      "Ok to proceed? (y)",
+      "✓ Would you like to use TypeScript? ... yes",
+      "✓ Would you like to use ESLint? ... yes",
+      "✓ Would you like to use Tailwind CSS? ... yes",
+      "✓ Would you like to use `src/` directory? ... yes",
+      "✓ Would you like to use App Router? (recommended) ... yes",
+      "✓ Would you like to customize the default import alias (@/*)? ... yes",
+      "Creating a new Next.js app in /home/user/my-app.",
+      "Installing dependencies:",
+      "  - react",
+      "  - react-dom",
+      "  - next",
+      "  - typescript",
+      "  - @types/node",
+      "  - @types/react",
+      "  - @types/react-dom",
+      "  - tailwindcss",
+      "  - postcss",
+      "  - autoprefixer",
+      "  - eslint",
+      "  - eslint-config-next",
+      "Installing packages. This might take a couple of minutes.",
+      "Success! Created my-app at /home/user/my-app",
+    ];
+
+    setIsInstalling(true);
+    for (const step of steps) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setCommands(prev => [...prev, step]);
+    }
+    setIsInstalling(false);
+  };
+
+  const executeCommand = async (command: string) => {
     console.log('Executing command:', command);
     let output = '';
 
@@ -26,7 +64,7 @@ export function Terminal() {
         setCommands([]);
         return;
       case 'help':
-        output = 'Available commands: clear, help, echo, pwd, ls';
+        output = 'Available commands: clear, help, echo, pwd, ls, npx create-next-app@latest';
         break;
       case 'pwd':
         output = '/home/user';
@@ -34,6 +72,10 @@ export function Terminal() {
       case 'ls':
         output = 'Documents  Downloads  Pictures  Public';
         break;
+      case 'npx create-next-app@latest':
+        setCommands(prev => [...prev, `$ ${command}`]);
+        await simulateNextAppInstallation();
+        return;
       default:
         if (command.startsWith('echo ')) {
           output = command.slice(5); // Remove 'echo ' from the start
@@ -47,7 +89,7 @@ export function Terminal() {
   };
 
   const handleCommand = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && currentCommand.trim()) {
+    if (e.key === 'Enter' && currentCommand.trim() && !isInstalling) {
       executeCommand(currentCommand.trim());
       setCurrentCommand('');
       setHistoryIndex(-1);
@@ -102,6 +144,7 @@ export function Terminal() {
             className="flex-1 bg-transparent outline-none"
             placeholder="Type a command..."
             autoFocus
+            disabled={isInstalling}
           />
         </div>
       </div>
