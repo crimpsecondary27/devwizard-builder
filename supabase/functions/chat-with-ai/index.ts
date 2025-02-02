@@ -1,33 +1,22 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import "https://deno.land/x/xhr@0.1.0/mod.ts"
 
-const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY');
+const DEEPSEEK_API_KEY = Deno.env.get('DEEPSEEK_API_KEY')
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { message } = await req.json();
-    console.log('Received message:', message);
-
-    const systemPrompt = `You are an AI assistant specialized in generating React web applications using Vite, TypeScript, and Tailwind CSS. 
-    When users describe their application requirements, you should:
-    1. Generate the necessary React components using TypeScript and Tailwind CSS
-    2. Create required backend APIs using Supabase
-    3. Design appropriate database schemas
-    4. Provide step-by-step implementation guidance
-    5. Return your response in a structured JSON format with separate sections for:
-       - frontend: React/TypeScript components with Tailwind CSS
-       - backend: Supabase API calls and Edge Functions
-       - database: SQL schema definitions`;
+    const { message } = await req.json()
+    console.log('Received message:', message)
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -36,34 +25,40 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'deepseek-coder',
+        model: "deepseek-coder-33b-instruct",
         messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: message }
+          {
+            role: "system",
+            content: `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
+            When generating code, always return a JSON response with the following structure:
+            {
+              "frontend": "// React component code here",
+              "backend": "// Backend code here if needed",
+              "database": "// Database schema if needed"
+            }`
+          },
+          { role: "user", content: message }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 4000,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`DeepSeek API error: ${response.statusText}`);
+      throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`)
     }
 
-    const data = await response.json();
-    console.log('DeepSeek API Response:', data);
+    const data = await response.json()
+    console.log('DeepSeek API response:', data)
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   } catch (error) {
-    console.error('Error in chat-with-ai function:', error);
-    return new Response(JSON.stringify({ 
-      error: error.message,
-      details: error.stack 
-    }), {
+    console.error('Error in chat-with-ai function:', error)
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    })
   }
-});
+})

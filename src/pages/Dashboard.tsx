@@ -91,6 +91,19 @@ const Dashboard = () => {
 
       setProgress(50);
 
+      // Store the message in the chat_history table
+      const { error: chatError } = await supabase
+        .from('chat_history')
+        .insert([
+          { 
+            user_id: session.user.id,
+            role: 'user',
+            content: message
+          }
+        ]);
+
+      if (chatError) throw chatError;
+
       const { data, error } = await supabase.functions.invoke('chat-with-ai', {
         body: { message },
       });
@@ -104,6 +117,37 @@ const Dashboard = () => {
       try {
         const parsedResponse = JSON.parse(responseContent);
         
+        // Store the generated app
+        const { data: appData, error: appError } = await supabase
+          .from('generated_apps')
+          .insert([
+            {
+              user_id: session.user.id,
+              name: `App ${new Date().toISOString()}`,
+              frontend_code: parsedResponse.frontend,
+              backend_code: parsedResponse.backend,
+              database_schema: parsedResponse.database
+            }
+          ])
+          .select()
+          .single();
+
+        if (appError) throw appError;
+
+        // Store the AI response in chat_history
+        const { error: aiChatError } = await supabase
+          .from('chat_history')
+          .insert([
+            {
+              user_id: session.user.id,
+              app_id: appData.id,
+              role: 'assistant',
+              content: "I've generated your application! Check out the code preview sections below."
+            }
+          ]);
+
+        if (aiChatError) throw aiChatError;
+
         setGeneratedCode({
           frontend: parsedResponse.frontend,
           backend: parsedResponse.backend,
