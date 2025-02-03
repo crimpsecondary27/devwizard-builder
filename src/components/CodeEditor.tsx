@@ -30,18 +30,24 @@ const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps
     };
   }, []);
 
-  const handleEditorWillMount = (monaco: typeof window.monaco) => {
+  const handleEditorWillMount = (monacoEditor: typeof monaco) => {
     console.log("Monaco Editor will mount");
-    monacoRef.current = monaco;
-    // Create a new model if needed
-    const existingModel = monaco.editor.getModel(monaco.Uri.parse(`file:///workspace/code.${language}`));
-    if (!existingModel) {
-      console.log("Creating new Monaco model");
-      monaco.editor.createModel(
-        code,
-        language,
-        monaco.Uri.parse(`file:///workspace/code.${language}`)
-      );
+    monacoRef.current = monacoEditor;
+    
+    try {
+      // Create a new model if needed
+      const modelUri = monacoEditor.Uri.parse(`file:///workspace/code.${language}`);
+      const existingModel = monacoEditor.editor.getModel(modelUri);
+      
+      if (!existingModel) {
+        console.log("Creating new Monaco model");
+        monacoEditor.editor.createModel(code, language, modelUri);
+      } else {
+        console.log("Using existing Monaco model");
+        existingModel.setValue(code);
+      }
+    } catch (error) {
+      console.error("Error initializing Monaco model:", error);
     }
   };
 
