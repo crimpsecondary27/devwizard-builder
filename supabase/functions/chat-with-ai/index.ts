@@ -26,7 +26,13 @@ serve(async (req) => {
       throw new Error('DeepSeek API key is not configured')
     }
 
-    // Validate request body
+    // Validate content type
+    const contentType = req.headers.get('content-type')
+    if (!contentType?.includes('application/json')) {
+      throw new Error('Content-Type must be application/json')
+    }
+
+    // Validate and parse request body
     let requestData
     try {
       const rawBody = await req.text()
@@ -38,14 +44,22 @@ serve(async (req) => {
 
       requestData = JSON.parse(rawBody)
       console.log('Parsed request data:', requestData)
+
+      if (!requestData.message || typeof requestData.message !== 'string') {
+        throw new Error('Invalid message format. Expected a string.')
+      }
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError)
-      throw new Error('Invalid JSON in request body')
-    }
-
-    const { message } = requestData
-    if (!message || typeof message !== 'string') {
-      throw new Error('Invalid message format. Expected a string.')
+      return new Response(
+        JSON.stringify({
+          error: 'Invalid request format',
+          details: parseError.message
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
@@ -68,7 +82,7 @@ Make sure all code is properly formatted, includes necessary imports, and follow
 If a component is not needed, use an empty string for that field.
 DO NOT include any markdown formatting, code blocks, or additional text - ONLY the JSON object.`
 
-    console.log('Making request to DeepSeek API')
+    console.log('Making request to DeepSeek API with message:', requestData.message)
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -79,7 +93,7 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       body: JSON.stringify({
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: message }
+          { role: "user", content: requestData.message }
         ],
         model: "deepseek-chat",
         temperature: 0.7,
@@ -116,16 +130,12 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       .replace(/```json\s*/g, '')
       .replace(/```\s*$/g, '')
       .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
-      .replace(/\\/g, '\\\\')
-      .replace(/\n/g, '\\n')
-      .replace(/\r/g, '\\r')
-      .replace(/\t/g, '\\t')
       .trim()
 
     console.log('Cleaned content:', content)
 
     try {
-      // First parsing attempt
+      // Validate JSON structure
       const parsedContent = JSON.parse(content)
       console.log('Successfully parsed content:', parsedContent)
 
@@ -152,46 +162,21 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
           }
         }
       )
-    } catch (firstParseError) {
-      console.error('First parse attempt failed:', firstParseError)
-      
-      try {
-        // Additional cleaning for second attempt
-        content = content
-          .replace(/^[^{]*{/, '{')  // Remove any text before first {
-          .replace(/}[^}]*$/, '}')  // Remove any text after last }
-          .replace(/([{,]\s*)([a-zA-Z0-9_]+)(?=\s*:)/g, '$1"$2"') // Add quotes to property names
-          .replace(/:\s*'([^']*)'(?=[,}])/g, ':"$1"')  // Replace single quotes with double quotes
-          .replace(/,\s*}/g, '}')  // Remove trailing commas
-          
-        console.log('Content after additional cleaning:', content)
-        
-        const parsedContent = JSON.parse(content)
-        console.log('Successfully parsed after additional cleaning:', parsedContent)
-
-        return new Response(
-          JSON.stringify({
-            choices: [{
-              message: {
-                content: JSON.stringify(parsedContent)
-              }
-            }]
-          }),
-          {
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json'
-            }
-          }
-        )
-      } catch (secondParseError) {
-        console.error('Second parse attempt failed:', secondParseError)
-        throw new Error('Failed to parse AI response after multiple attempts')
-      }
+    } catch (parseError) {
+      console.error('Failed to parse AI response:', parseError)
+      return new Response(
+        JSON.stringify({
+          error: 'Failed to parse AI response',
+          details: parseError.message
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
-    
     return new Response(
       JSON.stringify({
         error: error.message,
