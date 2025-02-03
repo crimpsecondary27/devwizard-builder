@@ -92,6 +92,7 @@ const Dashboard = () => {
 
       setProgress(50);
 
+      // Store the message in the chat_history table
       const { error: chatError } = await supabase
         .from('chat_history')
         .insert([
