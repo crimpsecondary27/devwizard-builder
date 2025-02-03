@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Editor } from "@monaco-editor/react";
 import * as monaco from "monaco-editor";
 
@@ -11,10 +11,11 @@ interface CodeEditorProps {
 const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps) => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
   const monacoRef = useRef<typeof monaco | null>(null);
+  const [isEditorReady, setIsEditorReady] = useState(false);
 
   useEffect(() => {
-    // Cleanup function
     return () => {
+      // Cleanup function
       if (editorRef.current) {
         console.log("Disposing Monaco Editor");
         editorRef.current.dispose();
@@ -32,29 +33,38 @@ const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps
     monacoRef.current = monacoEditor;
   };
 
-  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof monaco) => {
+  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
     console.log("Monaco Editor mounted");
     editorRef.current = editor;
-    monacoRef.current = monacoInstance;
 
     try {
       // Get or create model
-      const modelUri = monacoInstance.Uri.parse(`file:///workspace/code.${language}`);
-      let model = monacoInstance.editor.getModel(modelUri);
+      const modelUri = monaco.Uri.parse(`file:///workspace/code.${language}`);
+      let model = monaco.editor.getModel(modelUri);
       
       if (!model) {
         console.log("Creating new Monaco model");
-        model = monacoInstance.editor.createModel(code, language, modelUri);
+        model = monaco.editor.createModel(code, language, modelUri);
       } else {
         console.log("Updating existing Monaco model");
         model.setValue(code);
       }
       
       editor.setModel(model);
+      setIsEditorReady(true);
     } catch (error) {
       console.error("Error initializing Monaco model:", error);
     }
   };
+
+  useEffect(() => {
+    if (isEditorReady && editorRef.current) {
+      const model = editorRef.current.getModel();
+      if (model && model.getValue() !== code) {
+        model.setValue(code);
+      }
+    }
+  }, [code, isEditorReady]);
 
   return (
     <div className="h-[400px] w-full border border-gray-700 rounded-lg overflow-hidden">
