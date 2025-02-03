@@ -9,7 +9,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Add detailed logging
   console.log('Received request:', {
     method: req.method,
     url: req.url,
@@ -99,13 +98,18 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
     let content = data.choices[0].message.content.trim()
     console.log('Raw content from AI:', content)
 
-    // Remove any markdown formatting
+    // Remove any markdown formatting and clean the content
     content = content
       .replace(/```json\s*/g, '')
       .replace(/```\s*$/g, '')
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+      .replace(/\\/g, '\\\\') // Escape backslashes
+      .replace(/\n/g, '\\n') // Handle newlines
+      .replace(/\r/g, '\\r') // Handle carriage returns
+      .replace(/\t/g, '\\t') // Handle tabs
       .trim()
 
-    console.log('Content after markdown removal:', content)
+    console.log('Cleaned content:', content)
 
     try {
       // First attempt to parse the JSON
@@ -136,23 +140,21 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       console.error('Error parsing AI response:', parseError)
       console.error('Failed content:', content)
 
-      // Try to clean the content further and parse again
+      // Try to clean the content further and wrap it properly
       try {
-        content = content
-          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-          .replace(/\\/g, '\\\\') // Escape backslashes
-          .replace(/"/g, '\\"') // Escape quotes
-          .replace(/\n/g, '\\n') // Handle newlines
-          .replace(/\r/g, '\\r') // Handle carriage returns
-          .replace(/\t/g, '\\t') // Handle tabs
-
-        console.log('Cleaned content:', content)
-        
-        // Wrap in quotes and curly braces if not already present
+        // Ensure the content starts and ends with curly braces
         if (!content.startsWith('{')) {
-          content = `{${content}}`
+          content = '{' + content
+        }
+        if (!content.endsWith('}')) {
+          content = content + '}'
         }
 
+        // Add quotes around unquoted property names
+        content = content.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
+
+        console.log('Further cleaned content:', content)
+        
         const parsedContent = JSON.parse(content)
         console.log('Successfully parsed cleaned content:', parsedContent)
 
@@ -167,7 +169,7 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
         })
       } catch (secondParseError) {
         console.error('Second parse attempt failed:', secondParseError)
-        throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`)
+        throw new Error(`Failed to parse AI response: ${secondParseError.message}`)
       }
     }
   } catch (error) {
