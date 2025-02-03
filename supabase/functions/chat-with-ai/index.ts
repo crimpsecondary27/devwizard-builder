@@ -125,10 +125,9 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
 
     console.log('Cleaned content:', content)
 
-    // Validate JSON structure
-    let parsedContent
+    // First try to parse the content as is
     try {
-      parsedContent = JSON.parse(content)
+      const parsedContent = JSON.parse(content)
       console.log('Successfully parsed content:', parsedContent)
 
       if (!parsedContent || typeof parsedContent !== 'object') {
@@ -138,26 +137,26 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       if (!('frontend' in parsedContent) || !('backend' in parsedContent) || !('database' in parsedContent)) {
         throw new Error('AI response is missing required fields')
       }
+
+      return new Response(
+        JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify(parsedContent)
+            }
+          }]
+        }),
+        {
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json'
+          }
+        }
+      )
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError)
       throw new Error(`Invalid JSON in AI response: ${parseError.message}`)
     }
-
-    return new Response(
-      JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify(parsedContent)
-          }
-        }]
-      }),
-      {
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json'
-        }
-      }
-    )
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
     return new Response(
