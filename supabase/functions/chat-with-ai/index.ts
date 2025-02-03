@@ -27,16 +27,16 @@ serve(async (req) => {
     }
 
     // Validate request body
-    const text = await req.text()
-    console.log('Raw request body:', text)
+    const rawBody = await req.text()
+    console.log('Raw request body:', rawBody)
 
-    if (!text) {
+    if (!rawBody) {
       throw new Error('Request body is empty')
     }
 
     let requestData
     try {
-      requestData = JSON.parse(text)
+      requestData = JSON.parse(rawBody)
       console.log('Parsed request data:', requestData)
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError)
@@ -110,7 +110,7 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       throw new Error('Invalid response format from DeepSeek API')
     }
 
-    let content = data.choices[0].message.content
+    let content = data.choices[0].message.content.trim()
     console.log('Raw AI response content:', content)
 
     // Clean and normalize the content
@@ -127,6 +127,7 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
     console.log('Cleaned content:', content)
 
     try {
+      // First parsing attempt
       const parsedContent = JSON.parse(content)
       console.log('Successfully parsed content:', parsedContent)
 
@@ -153,20 +154,19 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
           }
         }
       )
-    } catch (parseError) {
-      console.error('Error parsing AI response:', parseError)
-      console.error('Failed content:', content)
-
-      // Additional cleaning and parsing attempt
+    } catch (firstParseError) {
+      console.error('First parse attempt failed:', firstParseError)
+      
       try {
-        // Ensure proper JSON structure
-        if (!content.startsWith('{')) content = '{' + content
-        if (!content.endsWith('}')) content = content + '}'
-
-        // Add quotes to property names if missing
-        content = content.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
-        
-        console.log('Additional cleaning attempt:', content)
+        // Additional cleaning for second attempt
+        content = content
+          .replace(/^[^{]*{/, '{')  // Remove any text before first {
+          .replace(/}[^}]*$/, '}')  // Remove any text after last }
+          .replace(/([{,]\s*)([a-zA-Z0-9_]+)(?=\s*:)/g, '$1"$2"') // Add quotes to property names
+          .replace(/:\s*'([^']*)'(?=[,}])/g, ':"$1"')  // Replace single quotes with double quotes
+          .replace(/,\s*}/g, '}')  // Remove trailing commas
+          
+        console.log('Content after additional cleaning:', content)
         
         const parsedContent = JSON.parse(content)
         console.log('Successfully parsed after additional cleaning:', parsedContent)
