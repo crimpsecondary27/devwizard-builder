@@ -29,11 +29,18 @@ serve(async (req) => {
     console.log('Making request to DeepSeek API...')
     
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
-    When a user requests a feature or application, analyze their request and generate the necessary code components.
+    When a user requests a project setup or feature, analyze their request and generate the necessary code components.
+    For project setup requests, generate a complete project structure with:
+    - Vite + React + TypeScript configuration
+    - Tailwind CSS setup
+    - shadcn-ui components
+    - Proper TypeScript types
+    - Basic folder structure (src/components, src/pages, etc.)
+    
     IMPORTANT: Return ONLY a raw JSON object, do not wrap it in markdown code blocks or any other formatting.
     Your response must be a valid JSON object with exactly these three fields:
     {
-      "frontend": "// React component code with proper imports and TypeScript types",
+      "frontend": "// Complete frontend code including project structure",
       "backend": "// Any necessary backend code or API endpoints",
       "database": "// Required database schema or modifications"
     }
@@ -92,12 +99,10 @@ serve(async (req) => {
       throw new Error('Invalid response format from DeepSeek API')
     }
 
-    // Get the raw content from the AI response
     const content = data.choices[0].message.content
     console.log('Raw AI response content:', content)
 
     try {
-      // Clean the content by removing any markdown formatting
       const cleanContent = content
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
@@ -105,11 +110,9 @@ serve(async (req) => {
 
       console.log('Cleaned content:', cleanContent)
 
-      // Try to parse the cleaned content as JSON
       const parsedContent = JSON.parse(cleanContent)
       console.log('Successfully parsed content:', JSON.stringify(parsedContent, null, 2))
       
-      // Validate the response format
       if (!parsedContent || typeof parsedContent !== 'object') {
         throw new Error('AI response is not a JSON object')
       }
@@ -118,7 +121,6 @@ serve(async (req) => {
         throw new Error('AI response is missing required fields')
       }
 
-      // If validation passes, return the original response with the parsed content
       return new Response(JSON.stringify({
         ...data,
         choices: [{
