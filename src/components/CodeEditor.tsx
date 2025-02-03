@@ -13,14 +13,13 @@ const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps
   const monacoRef = useRef<typeof monaco | null>(null);
   const [isEditorReady, setIsEditorReady] = useState(false);
 
+  // Cleanup function
   useEffect(() => {
     return () => {
-      // Cleanup function
       if (editorRef.current) {
         console.log("Disposing Monaco Editor");
         editorRef.current.dispose();
       }
-      // Cleanup any remaining models
       if (monacoRef.current) {
         console.log("Cleaning up Monaco models");
         monacoRef.current.editor.getModels().forEach(model => model.dispose());
@@ -36,27 +35,39 @@ const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps
   const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
     console.log("Monaco Editor mounted");
     editorRef.current = editor;
+    
+    // Ensure we have a valid Monaco instance
+    if (!monacoRef.current) {
+      console.error("Monaco instance not available");
+      return;
+    }
 
     try {
-      // Get or create model
-      const modelUri = monaco.Uri.parse(`file:///workspace/code.${language}`);
-      let model = monaco.editor.getModel(modelUri);
+      // Create a unique model URI for this instance
+      const modelUri = monacoRef.current.Uri.parse(`file:///workspace/code.${language}`);
       
-      if (!model) {
-        console.log("Creating new Monaco model");
-        model = monaco.editor.createModel(code, language, modelUri);
-      } else {
-        console.log("Updating existing Monaco model");
-        model.setValue(code);
+      // Check for existing model and dispose if found
+      let model = monacoRef.current.editor.getModel(modelUri);
+      if (model) {
+        console.log("Disposing existing model");
+        model.dispose();
       }
       
+      // Create new model
+      console.log("Creating new Monaco model");
+      model = monacoRef.current.editor.createModel(code, language, modelUri);
+      
+      // Set the model to the editor
       editor.setModel(model);
       setIsEditorReady(true);
+      
+      console.log("Model setup complete");
     } catch (error) {
       console.error("Error initializing Monaco model:", error);
     }
   };
 
+  // Update model content when code prop changes
   useEffect(() => {
     if (isEditorReady && editorRef.current) {
       const model = editorRef.current.getModel();
