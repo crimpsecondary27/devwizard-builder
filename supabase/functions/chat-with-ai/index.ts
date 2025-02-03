@@ -15,6 +15,7 @@ serve(async (req) => {
     headers: Object.fromEntries(req.headers.entries())
   })
 
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -25,8 +26,22 @@ serve(async (req) => {
       throw new Error('DeepSeek API key is not configured')
     }
 
-    const requestData = await req.json()
-    console.log('Request data:', requestData)
+    // Validate request body
+    const text = await req.text()
+    console.log('Raw request body:', text)
+
+    if (!text) {
+      throw new Error('Request body is empty')
+    }
+
+    let requestData
+    try {
+      requestData = JSON.parse(text)
+      console.log('Parsed request data:', requestData)
+    } catch (parseError) {
+      console.error('Failed to parse request body:', parseError)
+      throw new Error('Invalid JSON in request body')
+    }
 
     const { message } = requestData
     if (!message || typeof message !== 'string') {
@@ -53,7 +68,7 @@ Make sure all code is properly formatted, includes necessary imports, and follow
 If a component is not needed, use an empty string for that field.
 DO NOT include any markdown formatting, code blocks, or additional text - ONLY the JSON object.`
 
-    console.log('Making request to DeepSeek API with system prompt')
+    console.log('Making request to DeepSeek API')
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -88,35 +103,33 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
     }
 
     const data = await response.json()
-    console.log('Raw DeepSeek API response:', JSON.stringify(data, null, 2))
+    console.log('DeepSeek API response:', JSON.stringify(data, null, 2))
 
     if (!data.choices?.[0]?.message?.content) {
       console.error('Invalid response format from DeepSeek API:', data)
       throw new Error('Invalid response format from DeepSeek API')
     }
 
-    let content = data.choices[0].message.content.trim()
-    console.log('Raw content from AI:', content)
+    let content = data.choices[0].message.content
+    console.log('Raw AI response content:', content)
 
-    // Remove any markdown formatting and clean the content
+    // Clean and normalize the content
     content = content
       .replace(/```json\s*/g, '')
       .replace(/```\s*$/g, '')
-      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-      .replace(/\\/g, '\\\\') // Escape backslashes
-      .replace(/\n/g, '\\n') // Handle newlines
-      .replace(/\r/g, '\\r') // Handle carriage returns
-      .replace(/\t/g, '\\t') // Handle tabs
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')
+      .replace(/\\/g, '\\\\')
+      .replace(/\n/g, '\\n')
+      .replace(/\r/g, '\\r')
+      .replace(/\t/g, '\\t')
       .trim()
 
     console.log('Cleaned content:', content)
 
     try {
-      // First attempt to parse the JSON
       const parsedContent = JSON.parse(content)
       console.log('Successfully parsed content:', parsedContent)
 
-      // Validate the structure
       if (!parsedContent || typeof parsedContent !== 'object') {
         throw new Error('AI response is not a JSON object')
       }
@@ -125,51 +138,57 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
         throw new Error('AI response is missing required fields')
       }
 
-      // Return the successful response
-      return new Response(JSON.stringify({
-        choices: [{
-          message: {
-            content: JSON.stringify(parsedContent)
-          }
-        }]
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-
-    } catch (parseError) {
-      console.error('Error parsing AI response:', parseError)
-      console.error('Failed content:', content)
-
-      // Try to clean the content further and wrap it properly
-      try {
-        // Ensure the content starts and ends with curly braces
-        if (!content.startsWith('{')) {
-          content = '{' + content
-        }
-        if (!content.endsWith('}')) {
-          content = content + '}'
-        }
-
-        // Add quotes around unquoted property names
-        content = content.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
-
-        console.log('Further cleaned content:', content)
-        
-        const parsedContent = JSON.parse(content)
-        console.log('Successfully parsed cleaned content:', parsedContent)
-
-        return new Response(JSON.stringify({
+      return new Response(
+        JSON.stringify({
           choices: [{
             message: {
               content: JSON.stringify(parsedContent)
             }
           }]
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+        }),
+        {
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    } catch (parseError) {
+      console.error('Error parsing AI response:', parseError)
+      console.error('Failed content:', content)
+
+      // Additional cleaning and parsing attempt
+      try {
+        // Ensure proper JSON structure
+        if (!content.startsWith('{')) content = '{' + content
+        if (!content.endsWith('}')) content = content + '}'
+
+        // Add quotes to property names if missing
+        content = content.replace(/([{,]\s*)([a-zA-Z0-9_]+)(\s*:)/g, '$1"$2"$3')
+        
+        console.log('Additional cleaning attempt:', content)
+        
+        const parsedContent = JSON.parse(content)
+        console.log('Successfully parsed after additional cleaning:', parsedContent)
+
+        return new Response(
+          JSON.stringify({
+            choices: [{
+              message: {
+                content: JSON.stringify(parsedContent)
+              }
+            }]
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          }
+        )
       } catch (secondParseError) {
         console.error('Second parse attempt failed:', secondParseError)
-        throw new Error(`Failed to parse AI response: ${secondParseError.message}`)
+        throw new Error('Failed to parse AI response after multiple attempts')
       }
     }
   } catch (error) {
@@ -183,7 +202,10 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     )
   }
