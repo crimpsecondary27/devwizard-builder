@@ -29,24 +29,24 @@ serve(async (req) => {
     console.log('Making request to DeepSeek API...')
     
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
-    When a user requests a project setup or feature, analyze their request and generate the necessary code components.
-    For project setup requests, generate a complete project structure with:
-    - Vite + React + TypeScript configuration
-    - Tailwind CSS setup
-    - shadcn-ui components
-    - Proper TypeScript types
-    - Basic folder structure (src/components, src/pages, etc.)
-    
-    IMPORTANT: Return ONLY a raw JSON object, do not wrap it in markdown code blocks or any other formatting.
-    Your response must be a valid JSON object with exactly these three fields:
-    {
-      "frontend": "// Complete frontend code including project structure",
-      "backend": "// Any necessary backend code or API endpoints",
-      "database": "// Required database schema or modifications"
-    }
-    Make sure all code is properly formatted, includes necessary imports, and follows best practices.
-    If a component is not needed, use an empty string for that field.
-    DO NOT include any markdown formatting, code blocks, or additional text - ONLY the JSON object.`
+When a user requests a project setup or feature, analyze their request and generate the necessary code components.
+For project setup requests, generate a complete project structure with:
+- Vite + React + TypeScript configuration
+- Tailwind CSS setup
+- shadcn-ui components
+- Proper TypeScript types
+- Basic folder structure (src/components, src/pages, etc.)
+
+IMPORTANT: Return ONLY a raw JSON object, do not wrap it in markdown code blocks or any other formatting.
+Your response must be a valid JSON object with exactly these three fields:
+{
+  "frontend": "// Complete frontend code including project structure",
+  "backend": "// Any necessary backend code or API endpoints",
+  "database": "// Required database schema or modifications"
+}
+Make sure all code is properly formatted, includes necessary imports, and follows best practices.
+If a component is not needed, use an empty string for that field.
+DO NOT include any markdown formatting, code blocks, or additional text - ONLY the JSON object.`
 
     const requestBody = {
       messages: [
@@ -103,14 +103,36 @@ serve(async (req) => {
     console.log('Raw AI response content:', content)
 
     try {
-      const cleanContent = content
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
+      // First, normalize line endings and remove any BOM characters
+      let cleanContent = content
+        .replace(/\r\n/g, '\n')
+        .replace(/^\uFEFF/, '')
+        .trim()
+
+      // Remove any markdown code block indicators
+      cleanContent = cleanContent
+        .replace(/```json\s*/g, '')
+        .replace(/```\s*/g, '')
         .trim()
 
       console.log('Cleaned content:', cleanContent)
 
-      const parsedContent = JSON.parse(cleanContent)
+      // Try parsing with a more robust approach
+      let parsedContent
+      try {
+        parsedContent = JSON.parse(cleanContent)
+      } catch (parseError) {
+        console.error('First parse attempt failed:', parseError)
+        // If first attempt fails, try to clean the string further
+        cleanContent = cleanContent
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+          .replace(/\\/g, '\\\\') // Escape backslashes
+          .replace(/"/g, '\\"') // Escape quotes
+        
+        console.log('Further cleaned content:', cleanContent)
+        parsedContent = JSON.parse(cleanContent)
+      }
+
       console.log('Successfully parsed content:', JSON.stringify(parsedContent, null, 2))
       
       if (!parsedContent || typeof parsedContent !== 'object') {
