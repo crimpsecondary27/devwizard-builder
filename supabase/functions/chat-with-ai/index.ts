@@ -27,15 +27,15 @@ serve(async (req) => {
     }
 
     // Validate request body
-    const rawBody = await req.text()
-    console.log('Raw request body:', rawBody)
-
-    if (!rawBody) {
-      throw new Error('Request body is empty')
-    }
-
     let requestData
     try {
+      const rawBody = await req.text()
+      console.log('Raw request body:', rawBody)
+
+      if (!rawBody) {
+        throw new Error('Request body is empty')
+      }
+
       requestData = JSON.parse(rawBody)
       console.log('Parsed request data:', requestData)
     } catch (parseError) {
@@ -89,8 +89,6 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
         presence_penalty: 0
       })
     })
-
-    console.log('DeepSeek API response status:', response.status)
 
     if (!response.ok) {
       const errorText = await response.text()
