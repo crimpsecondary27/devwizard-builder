@@ -10,21 +10,40 @@ interface CodeEditorProps {
 
 const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps) => {
   const editorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof monaco | null>(null);
 
   useEffect(() => {
-    // Ensure Monaco is properly initialized
     if (typeof window !== "undefined") {
-      console.log("Initializing Monaco Editor");
+      // Cleanup existing models
+      console.log("Cleaning up existing Monaco models");
       monaco.editor.getModels().forEach(model => model.dispose());
     }
+
     return () => {
       // Cleanup on unmount
       if (editorRef.current) {
         console.log("Disposing Monaco Editor");
         editorRef.current.dispose();
       }
+      // Cleanup any remaining models
+      monaco.editor.getModels().forEach(model => model.dispose());
     };
   }, []);
+
+  const handleEditorWillMount = (monaco: typeof window.monaco) => {
+    console.log("Monaco Editor will mount");
+    monacoRef.current = monaco;
+    // Create a new model if needed
+    const existingModel = monaco.editor.getModel(monaco.Uri.parse(`file:///workspace/code.${language}`));
+    if (!existingModel) {
+      console.log("Creating new Monaco model");
+      monaco.editor.createModel(
+        code,
+        language,
+        monaco.Uri.parse(`file:///workspace/code.${language}`)
+      );
+    }
+  };
 
   const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
     console.log("Monaco Editor mounted");
@@ -39,6 +58,7 @@ const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps
         value={code}
         onChange={onChange}
         theme="vs-dark"
+        beforeMount={handleEditorWillMount}
         onMount={handleEditorDidMount}
         options={{
           minimap: { enabled: false },
