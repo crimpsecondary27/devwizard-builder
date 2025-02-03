@@ -13,47 +13,47 @@ const CodeEditor = ({ code, language = "typescript", onChange }: CodeEditorProps
   const monacoRef = useRef<typeof monaco | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      // Cleanup existing models
-      console.log("Cleaning up existing Monaco models");
-      monaco.editor.getModels().forEach(model => model.dispose());
-    }
-
+    // Cleanup function
     return () => {
-      // Cleanup on unmount
       if (editorRef.current) {
         console.log("Disposing Monaco Editor");
         editorRef.current.dispose();
       }
       // Cleanup any remaining models
-      monaco.editor.getModels().forEach(model => model.dispose());
+      if (monacoRef.current) {
+        console.log("Cleaning up Monaco models");
+        monacoRef.current.editor.getModels().forEach(model => model.dispose());
+      }
     };
   }, []);
 
   const handleEditorWillMount = (monacoEditor: typeof monaco) => {
     console.log("Monaco Editor will mount");
     monacoRef.current = monacoEditor;
-    
+  };
+
+  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor, monacoInstance: typeof monaco) => {
+    console.log("Monaco Editor mounted");
+    editorRef.current = editor;
+    monacoRef.current = monacoInstance;
+
     try {
-      // Create a new model if needed
-      const modelUri = monacoEditor.Uri.parse(`file:///workspace/code.${language}`);
-      const existingModel = monacoEditor.editor.getModel(modelUri);
+      // Get or create model
+      const modelUri = monacoInstance.Uri.parse(`file:///workspace/code.${language}`);
+      let model = monacoInstance.editor.getModel(modelUri);
       
-      if (!existingModel) {
+      if (!model) {
         console.log("Creating new Monaco model");
-        monacoEditor.editor.createModel(code, language, modelUri);
+        model = monacoInstance.editor.createModel(code, language, modelUri);
       } else {
-        console.log("Using existing Monaco model");
-        existingModel.setValue(code);
+        console.log("Updating existing Monaco model");
+        model.setValue(code);
       }
+      
+      editor.setModel(model);
     } catch (error) {
       console.error("Error initializing Monaco model:", error);
     }
-  };
-
-  const handleEditorDidMount = (editor: monaco.editor.IStandaloneCodeEditor) => {
-    console.log("Monaco Editor mounted");
-    editorRef.current = editor;
   };
 
   return (
