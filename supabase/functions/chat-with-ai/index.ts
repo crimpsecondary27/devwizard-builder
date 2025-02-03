@@ -32,34 +32,25 @@ serve(async (req) => {
       throw new Error('Content-Type must be application/json')
     }
 
-    // Validate and parse request body
+    // Get and validate request body
+    const rawBody = await req.text()
+    console.log('Raw request body:', rawBody)
+
+    if (!rawBody) {
+      throw new Error('Request body is empty')
+    }
+
     let requestData
     try {
-      const rawBody = await req.text()
-      console.log('Raw request body:', rawBody)
-
-      if (!rawBody) {
-        throw new Error('Request body is empty')
-      }
-
       requestData = JSON.parse(rawBody)
       console.log('Parsed request data:', requestData)
-
-      if (!requestData.message || typeof requestData.message !== 'string') {
-        throw new Error('Invalid message format. Expected a string.')
-      }
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError)
-      return new Response(
-        JSON.stringify({
-          error: 'Invalid request format',
-          details: parseError.message
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      throw new Error(`Invalid JSON in request body: ${parseError.message}`)
+    }
+
+    if (!requestData.message || typeof requestData.message !== 'string') {
+      throw new Error('Invalid message format. Expected a string.')
     }
 
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
@@ -134,9 +125,10 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
 
     console.log('Cleaned content:', content)
 
+    // Validate JSON structure
+    let parsedContent
     try {
-      // Validate JSON structure
-      const parsedContent = JSON.parse(content)
+      parsedContent = JSON.parse(content)
       console.log('Successfully parsed content:', parsedContent)
 
       if (!parsedContent || typeof parsedContent !== 'object') {
@@ -146,35 +138,26 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
       if (!('frontend' in parsedContent) || !('backend' in parsedContent) || !('database' in parsedContent)) {
         throw new Error('AI response is missing required fields')
       }
-
-      return new Response(
-        JSON.stringify({
-          choices: [{
-            message: {
-              content: JSON.stringify(parsedContent)
-            }
-          }]
-        }),
-        {
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json'
-          }
-        }
-      )
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError)
-      return new Response(
-        JSON.stringify({
-          error: 'Failed to parse AI response',
-          details: parseError.message
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      throw new Error(`Invalid JSON in AI response: ${parseError.message}`)
     }
+
+    return new Response(
+      JSON.stringify({
+        choices: [{
+          message: {
+            content: JSON.stringify(parsedContent)
+          }
+        }]
+      }),
+      {
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json'
+        }
+      }
+    )
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
     return new Response(
