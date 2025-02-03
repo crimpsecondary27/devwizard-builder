@@ -1,7 +1,16 @@
-import { serve } from 'https://deno.fresh.dev/server/mod.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 serve(async (req) => {
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
+
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   try {
     const { operation, ...params } = await req.json();
     const authHeader = req.headers.get('Authorization');
@@ -9,7 +18,7 @@ serve(async (req) => {
     if (!authHeader) {
       return new Response(
         JSON.stringify({ error: 'No authorization header' }),
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -31,13 +40,15 @@ serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401 }
+        { status: 401, headers: corsHeaders }
       );
     }
 
     switch (operation) {
       case 'create-repo':
         const { name, isPrivate } = params;
+        console.log('Creating repository:', { name, isPrivate });
+        
         const response = await fetch('https://api.github.com/user/repos', {
           method: 'POST',
           headers: {
@@ -53,25 +64,28 @@ serve(async (req) => {
         });
 
         if (!response.ok) {
-          throw new Error('Failed to create repository');
+          const errorData = await response.text();
+          console.error('GitHub API error:', errorData);
+          throw new Error(`Failed to create repository: ${errorData}`);
         }
 
         const data = await response.json();
         return new Response(
           JSON.stringify(data),
-          { headers: { 'Content-Type': 'application/json' } }
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
 
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid operation' }),
-          { status: 400 }
+          { status: 400, headers: corsHeaders }
         );
     }
   } catch (error) {
+    console.error('Error in github-operations function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 });
