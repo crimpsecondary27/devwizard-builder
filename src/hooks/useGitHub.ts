@@ -9,6 +9,14 @@ export const useGitHub = () => {
   const createRepository = async (name: string, isPrivate: boolean = false) => {
     try {
       setIsLoading(true);
+      console.log('Creating repository:', { name, isPrivate });
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !sessionData.session) {
+        throw new Error('Authentication required');
+      }
+
       const { data, error } = await supabase.functions.invoke('github-operations', {
         body: { 
           action: 'create-repository',
@@ -17,12 +25,16 @@ export const useGitHub = () => {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating repository:', error);
+        throw error;
+      }
+
+      console.log('Repository created successfully:', data);
 
       toast({
         title: "Success",
-        description: `Repository ${name} created successfully!`,
-        variant: "default"
+        description: `Repository ${name} created successfully!`
       });
 
       return data;
