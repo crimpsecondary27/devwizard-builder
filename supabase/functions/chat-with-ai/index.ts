@@ -9,6 +9,13 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Add detailed logging
+  console.log('Received request:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  })
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -19,15 +26,14 @@ serve(async (req) => {
       throw new Error('DeepSeek API key is not configured')
     }
 
-    const { message } = await req.json()
-    console.log('Received message:', message)
+    const requestData = await req.json()
+    console.log('Request data:', requestData)
 
+    const { message } = requestData
     if (!message || typeof message !== 'string') {
       throw new Error('Invalid message format. Expected a string.')
     }
 
-    console.log('Making request to DeepSeek API...')
-    
     const systemPrompt = `You are an AI that generates full-stack web applications using React, Vite, TypeScript, and Tailwind CSS. 
 When a user requests a project setup or feature, analyze their request and generate the necessary code components.
 For project setup requests, generate a complete project structure with:
@@ -48,26 +54,7 @@ Make sure all code is properly formatted, includes necessary imports, and follow
 If a component is not needed, use an empty string for that field.
 DO NOT include any markdown formatting, code blocks, or additional text - ONLY the JSON object.`
 
-    const requestBody = {
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt
-        },
-        { 
-          role: "user", 
-          content: message 
-        }
-      ],
-      model: "deepseek-chat",
-      temperature: 0.7,
-      max_tokens: 4000,
-      top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0
-    }
-
-    console.log('Request body:', JSON.stringify(requestBody, null, 2))
+    console.log('Making request to DeepSeek API with system prompt')
 
     const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
       method: 'POST',
@@ -75,66 +62,57 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
         'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
+        model: "deepseek-chat",
+        temperature: 0.7,
+        max_tokens: 4000,
+        top_p: 1,
+        frequency_penalty: 0,
+        presence_penalty: 0
+      })
     })
 
     console.log('DeepSeek API response status:', response.status)
-    
+
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('DeepSeek API error details:', {
+      console.error('DeepSeek API error:', {
         status: response.status,
         statusText: response.statusText,
-        body: errorText,
-        headers: Object.fromEntries(response.headers.entries())
+        body: errorText
       })
-      
-      throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}\nResponse: ${errorText}`)
+      throw new Error(`DeepSeek API error: ${response.status} ${response.statusText}`)
     }
 
     const data = await response.json()
-    console.log('DeepSeek API response data:', JSON.stringify(data, null, 2))
+    console.log('Raw DeepSeek API response:', JSON.stringify(data, null, 2))
 
     if (!data.choices?.[0]?.message?.content) {
+      console.error('Invalid response format from DeepSeek API:', data)
       throw new Error('Invalid response format from DeepSeek API')
     }
 
-    const content = data.choices[0].message.content
-    console.log('Raw AI response content:', content)
+    let content = data.choices[0].message.content.trim()
+    console.log('Raw content from AI:', content)
+
+    // Remove any markdown formatting
+    content = content
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*$/g, '')
+      .trim()
+
+    console.log('Content after markdown removal:', content)
 
     try {
-      // First, normalize line endings and remove any BOM characters
-      let cleanContent = content
-        .replace(/\r\n/g, '\n')
-        .replace(/^\uFEFF/, '')
-        .trim()
+      // First attempt to parse the JSON
+      const parsedContent = JSON.parse(content)
+      console.log('Successfully parsed content:', parsedContent)
 
-      // Remove any markdown code block indicators
-      cleanContent = cleanContent
-        .replace(/```json\s*/g, '')
-        .replace(/```\s*/g, '')
-        .trim()
-
-      console.log('Cleaned content:', cleanContent)
-
-      // Try parsing with a more robust approach
-      let parsedContent
-      try {
-        parsedContent = JSON.parse(cleanContent)
-      } catch (parseError) {
-        console.error('First parse attempt failed:', parseError)
-        // If first attempt fails, try to clean the string further
-        cleanContent = cleanContent
-          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
-          .replace(/\\/g, '\\\\') // Escape backslashes
-          .replace(/"/g, '\\"') // Escape quotes
-        
-        console.log('Further cleaned content:', cleanContent)
-        parsedContent = JSON.parse(cleanContent)
-      }
-
-      console.log('Successfully parsed content:', JSON.stringify(parsedContent, null, 2))
-      
+      // Validate the structure
       if (!parsedContent || typeof parsedContent !== 'object') {
         throw new Error('AI response is not a JSON object')
       }
@@ -143,38 +121,64 @@ DO NOT include any markdown formatting, code blocks, or additional text - ONLY t
         throw new Error('AI response is missing required fields')
       }
 
+      // Return the successful response
       return new Response(JSON.stringify({
-        ...data,
         choices: [{
-          ...data.choices[0],
           message: {
-            ...data.choices[0].message,
             content: JSON.stringify(parsedContent)
           }
         }]
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError)
-      console.error('Failed to parse content:', content)
-      throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`)
+      console.error('Failed content:', content)
+
+      // Try to clean the content further and parse again
+      try {
+        content = content
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // Remove control characters
+          .replace(/\\/g, '\\\\') // Escape backslashes
+          .replace(/"/g, '\\"') // Escape quotes
+          .replace(/\n/g, '\\n') // Handle newlines
+          .replace(/\r/g, '\\r') // Handle carriage returns
+          .replace(/\t/g, '\\t') // Handle tabs
+
+        console.log('Cleaned content:', content)
+        
+        // Wrap in quotes and curly braces if not already present
+        if (!content.startsWith('{')) {
+          content = `{${content}}`
+        }
+
+        const parsedContent = JSON.parse(content)
+        console.log('Successfully parsed cleaned content:', parsedContent)
+
+        return new Response(JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify(parsedContent)
+            }
+          }]
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      } catch (secondParseError) {
+        console.error('Second parse attempt failed:', secondParseError)
+        throw new Error(`Failed to parse AI response as JSON: ${parseError.message}`)
+      }
     }
   } catch (error) {
     console.error('Error in chat-with-ai function:', error)
     
-    if (error instanceof Error) {
-      console.error('Error name:', error.name)
-      console.error('Error message:', error.message)
-      console.error('Error stack:', error.stack)
-    }
-    
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message,
         details: error.stack,
         timestamp: new Date().toISOString()
-      }), 
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
