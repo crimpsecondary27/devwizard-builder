@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CodeEditor from "@/components/CodeEditor";
+import { FileManager } from "@/components/FileManager";
+import { Terminal } from "@/components/Terminal";
 
 type MessageRole = "user" | "assistant";
 
@@ -232,8 +234,14 @@ const Dashboard = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
+        <div className="grid grid-cols-12 gap-6">
+          {/* File Manager */}
+          <div className="col-span-2 h-[80vh]">
+            <FileManager />
+          </div>
+
+          {/* Main Content */}
+          <div className="col-span-7">
             <div className="bg-gray-800/50 backdrop-blur rounded-lg p-6 mb-6 h-[60vh] overflow-y-auto">
               {messages.map((msg, index) => (
                 <div
@@ -273,60 +281,67 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="bg-gray-800/50 backdrop-blur rounded-lg p-6 h-[80vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Generated Application</h2>
-            <Tabs defaultValue="code" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="code">Code</TabsTrigger>
-                <TabsTrigger value="preview">Live Preview</TabsTrigger>
-              </TabsList>
-              <TabsContent value="code" className="space-y-6">
-                {generatedCode.frontend && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">Frontend Code</h3>
-                    <CodeEditor 
-                      code={generatedCode.frontend}
-                      language="typescript"
-                      onChange={(value) => handleCodeChange(value, 'frontend')}
+          {/* Code Preview */}
+          <div className="col-span-3">
+            <div className="bg-gray-800/50 backdrop-blur rounded-lg h-[80vh] overflow-hidden flex flex-col">
+              <Tabs defaultValue="code" className="w-full flex-1">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="code">Code</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                </TabsList>
+                <TabsContent value="code" className="flex-1 overflow-y-auto">
+                  {generatedCode.frontend && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Frontend Code</h3>
+                      <CodeEditor 
+                        code={generatedCode.frontend}
+                        language="typescript"
+                        onChange={(value) => handleCodeChange(value, 'frontend')}
+                      />
+                    </div>
+                  )}
+                  {generatedCode.backend && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Backend Code</h3>
+                      <CodeEditor 
+                        code={generatedCode.backend}
+                        language="typescript"
+                        onChange={(value) => handleCodeChange(value, 'backend')}
+                      />
+                    </div>
+                  )}
+                  {generatedCode.database && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Database Schema</h3>
+                      <CodeEditor 
+                        code={generatedCode.database}
+                        language="sql"
+                        onChange={(value) => handleCodeChange(value, 'database')}
+                      />
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="preview" className="h-full">
+                  {sandboxUrl ? (
+                    <iframe
+                      src={sandboxUrl}
+                      className="w-full h-full rounded-lg border border-gray-700"
+                      sandbox="allow-scripts allow-same-origin"
+                      title="Generated Application Preview"
                     />
-                  </div>
-                )}
-                {generatedCode.backend && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">Backend Code</h3>
-                    <CodeEditor 
-                      code={generatedCode.backend}
-                      language="typescript"
-                      onChange={(value) => handleCodeChange(value, 'backend')}
-                    />
-                  </div>
-                )}
-                {generatedCode.database && (
-                  <div>
-                    <h3 className="text-lg font-semibold mb-2">Database Schema</h3>
-                    <CodeEditor 
-                      code={generatedCode.database}
-                      language="sql"
-                      onChange={(value) => handleCodeChange(value, 'database')}
-                    />
-                  </div>
-                )}
-              </TabsContent>
-              <TabsContent value="preview" className="h-[60vh]">
-                {sandboxUrl ? (
-                  <iframe
-                    src={sandboxUrl}
-                    className="w-full h-full rounded-lg border border-gray-700"
-                    sandbox="allow-scripts allow-same-origin"
-                    title="Generated Application Preview"
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full text-gray-400">
-                    No preview available yet. Generate some code first!
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-400">
+                      No preview available yet. Generate some code first!
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </div>
+
+          {/* Terminal */}
+          <div className="col-span-12 h-[20vh]">
+            <Terminal />
           </div>
         </div>
       </div>
