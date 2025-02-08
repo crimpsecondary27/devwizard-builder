@@ -11,7 +11,6 @@ export type Database = {
     Tables: {
       chat_history: {
         Row: {
-          app_id: string | null
           content: string
           created_at: string
           id: string
@@ -19,7 +18,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          app_id?: string | null
           content: string
           created_at?: string
           id?: string
@@ -27,56 +25,59 @@ export type Database = {
           user_id: string
         }
         Update: {
-          app_id?: string | null
           content?: string
           created_at?: string
           id?: string
           role?: string
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "chat_history_app_id_fkey"
-            columns: ["app_id"]
-            isOneToOne: false
-            referencedRelation: "generated_apps"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       generated_apps: {
         Row: {
           backend_code: string | null
           created_at: string
           database_schema: string | null
-          description: string | null
           frontend_code: string | null
           id: string
           name: string
-          updated_at: string
           user_id: string
         }
         Insert: {
           backend_code?: string | null
           created_at?: string
           database_schema?: string | null
-          description?: string | null
           frontend_code?: string | null
           id?: string
           name: string
-          updated_at?: string
           user_id: string
         }
         Update: {
           backend_code?: string | null
           created_at?: string
           database_schema?: string | null
-          description?: string | null
           frontend_code?: string | null
           id?: string
           name?: string
-          updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
         }
         Relationships: []
       }
